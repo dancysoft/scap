@@ -617,24 +617,22 @@ class Deploy(cli.Application):
 
     @cli.argument('-r', '--rev', default='HEAD', help='Revision to deploy')
     def main(self, *extra_args):
-        if not utils.is_git_dir(os.getcwd()):
-            raise RuntimeError(errno.EPERM,
-                'Script must be run from deployment repository under {}'
-                    .format(self.config['git_deploy_dir']),
-                self.config['git_deploy_dir'])
+        logger = self.get_logger()
+        repo = self.config['git_repo']
+        deploy_dir = self.config['git_deploy_dir']
 
-        in_deploy_dir = os.path.commonprefix([
-            os.getcwd(),
-            self.config['git_deploy_dir']
-        ]) == self.config['git_deploy_dir']
+        in_deploy_dir = os.path.commonprefix(
+            [os.getcwd(), deploy_dir]) == deploy_dir
 
         if not in_deploy_dir:
             raise RuntimeError(errno.EPERM,
-                    'Your path is not a part of the git deploy path',
-                    self.config['git_deploy_dir'])
+                'Your path is not a part of the git deploy path', deploy_dir)
 
-        logger = self.get_logger()
-        repo = self.config['git_repo']
+        if not utils.is_git_dir(os.getcwd()):
+            raise RuntimeError(errno.EPERM,
+                'Script must be run from deployment repository under {}'
+                    .format(deploy_dir))
+
         targets = utils.read_dsh_hosts_file(self.config['dsh_targets'])
 
         # batch_size not required, don't allow a batch_size > 80 if set
@@ -643,8 +641,7 @@ class Deploy(cli.Application):
 
         with utils.lock(self.config['lock_file']):
             with log.Timer('deploy_' + repo):
-
-                (tag, tag_json) = utils.generate_json_tag(location=repo)
+                (tag, tag_json) = utils.generate_json_tag(location=os.getcwd())
 
                 tasks.git_deploy_file(tag_json)
                 tasks.git_tag_repo(tag, tag_json, self.arguments.rev)
