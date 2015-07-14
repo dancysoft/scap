@@ -1,2 +1,3 @@
 psutil
 netifaces
+prompt-toolkit
