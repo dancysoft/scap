@@ -21,7 +21,7 @@ possible. ::
 from __future__ import unicode_literals
 
 from prompt_toolkit.interface import CommandLineInterface
-from prompt_toolkit.shortcuts import create_default_application, create_asyncio_eventloop
+from prompt_toolkit.shortcuts import create_default_application, create_asyncio_eventloop, create_eventloop
 from prompt_toolkit.application import Application
 from prompt_toolkit.buffer import Buffer
 from prompt_toolkit.completion import Completion, Completer
@@ -35,7 +35,7 @@ from prompt_toolkit.layout.processors import Processor
 from prompt_toolkit.layout.prompt import DefaultPrompt
 from prompt_toolkit.layout.toolbars import SystemToolbar, ArgToolbar, CompletionsToolbar, SearchToolbar
 from prompt_toolkit.layout.utils import token_list_len
-from prompt_toolkit.shortcuts import create_eventloop
+from prompt_toolkit.utils import Callback
 
 from pygments.lexers import PythonLexer
 from pygments.style import Style
@@ -49,20 +49,19 @@ import asyncio
 import sys
 
 
-loop = asyncio.get_event_loop()
-
 class ScapPrompt(Processor):
     def run(self, cli, buffer, tokens):
         now = datetime.datetime.now()
         before = [
             (Token.Prompt, '%s:%s:%s' % (now.hour, now.minute, now.second)),
-            (Token.Prompt, '  hi ')
+            (Token.Prompt, '  scap> ')
         ]
 
         return before + tokens, lambda i: i + token_list_len(before)
 
     def invalidation_hash(self, cli, buffer):
         return datetime.datetime.now()
+
 
 class TestCompleter(Completer):
     def get_completions(self, document, complete_event):
@@ -71,107 +70,67 @@ class TestCompleter(Completer):
         for i in range(0, 20):
             yield Completion('Completion %i' % i, -len(word_before_cursor))
 
-class TestStyle(Style):
-    styles = {
-        Token.A: '#000000 bg:#ff0000',
-        Token.B: '#000000 bg:#00ff00',
-        Token.C: '#000000 bg:#0000ff',
-        Token.D: '#000000 bg:#ff00ff',
-        Token.E: '#000000 bg:#00ffff',
-        Token.F: '#000000 bg:#ffff00',
-        Token.HelloWorld: 'bg:#ff00ff',
-        Token.Line: 'bg:#000000 #ffffff',
 
-        Token.LineNumber:  'bg:#ffffaa #000000',
-        Token.Menu.Completions.Completion.Current: 'bg:#00aaaa #000000',
-        Token.Menu.Completions.Completion:         'bg:#008888 #ffffff',
-        Token.Menu.Completions.ProgressButton:     'bg:#003333',
-        Token.Menu.Completions.ProgressBar:        'bg:#00aaaa',
+def main():
+    eventloop = create_eventloop()
+    done = [False]  # Non local
 
-        Token.Toolbar.Completions:  'bg:#888800 #000000',
-        Token.Toolbar.Completions.Arrow: 'bg:#888800 #000000',
-        Token.Toolbar.Completions.Completion:  'bg:#aaaa00 #000000',
-        Token.Toolbar.Completions.Completion.Current:  'bg:#ffffaa #000000 bold',
-
-        Token.Prompt: 'bg:#00ffff #000000',
-        Token.AfterInput: 'bg:#ff44ff #000000',
-
-    }
-    styles.update(DefaultStyle.styles)
-
-class Globals(object):
-    @property
-    def cli(self):
-        return self._cli
-
-
-@asyncio.coroutine
-def print_counter():
-    """
-    Coroutine that prints counters.
-    """
-    i = 0
-    while True:
-        #with Globals.cli.patch_stdout_context():
-        print('Counter: %i' % i)
-        i += 1
-        yield from asyncio.sleep(3)
-
-
-@asyncio.coroutine
-def interactive_shell():
-    """
-    Coroutine that shows the interactive command line.
-    """
-    # Create an asyncio `EventLoop` object. This is a wrapper around the
-    # asyncio loop that can be passed into prompt_toolkit.
-    eventloop = create_asyncio_eventloop()
-
+    #manager = KeyBindingManager(enable_system_bindings=Always())
     D = LayoutDimension
     layout = HSplit([
-
+        Window(content=BufferControl(lexer=PythonLexer, buffer_name='out')),
         Window(height=D.exact(1),
                    content=FillControl('-', token=Token.Line)),
-        Window(content=BufferControl(
+        Window(height=D.exact(2), content=BufferControl(buffer_name='in',
             lexer=PythonLexer,
             input_processors=[ScapPrompt()]
         )),
     ])
 
-    application = Application(layout=layout,
-                     buffer=Buffer(completer=TestCompleter()))
+    def on_read_start(cli):
+        """
+        This function is called when we start reading at the input.
+        (Actually the start of the read-input event loop.)
+        """
+        # Following function should be run in the background.
+        # We do it by using an executor thread from the `CommandLineInterface`
+        # instance.
+        def run():
+            # Send every second a redraw request.
+            while not done[0]:
+                time.sleep(1)
+                cli.request_redraw()
 
-    # Create interface.
-    cli = CommandLineInterface(
-        application=application,
-        eventloop=eventloop)
-    Globals.cli = cli
-    # Patch stdout in something that will always print *above* the prompt when
-    # something is written to stdout.
+        cli.eventloop.run_in_executor(run)
+
+    def on_read_end(cli):
+        done[0] = True
+
+    default_buffer = Buffer()
+    out_buffer = Buffer(is_multiline=True)
+
+    application = Application(layout=layout,
+                        on_start = Callback(on_read_start),
+                        on_stop = Callback(on_read_end),
+                        #key_bindings_registry=manager.registry,
+                        buffer = default_buffer,
+                        buffers = {'in': default_buffer, 'out': out_buffer},
+                        initial_focussed_buffer = 'in',
+                        use_alternate_screen = True
+                    )
+
+    cli = CommandLineInterface(application=application, eventloop=eventloop)
     #sys.stdout = cli.stdout_proxy()
 
-    # Run echo loop. Read text from stdin, and reply it back.
+
     while True:
-        try:
-            result = yield from cli.run_async()
-            print('You said: "%s"\n' % result.text)
-            if result.text == 'exit':
-                raise KeyboardInterrupt();
-        except (EOFError, KeyboardInterrupt):
-            loop.stop()
-            print('Qutting event loop. Bye.')
-            return
+        userinput = cli.run()
+        out_buffer.text=out_buffer.text + "\n" + userinput.text
+        out_buffer.cursor_position = len(out_buffer.text)
+        if userinput.text == "exit":
+            break
 
-
-def main():
-
-    sys.stdout.flush()
-
-    asyncio.async(interactive_shell())
-    asyncio.async(print_counter())
-
-    loop.run_forever()
-    loop.close()
+    eventloop.close()
 
 
 if __name__ == '__main__':
