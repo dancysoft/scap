@@ -1,18 +1,73 @@
+import os, socket, subprocess, shlex
+from contextlib import contextmanager
+from scap.utils import sudo_check_call
+context_stack = []
 
-def lookup_command(cmd, context):
-    if (cmd in Proc.commands):
-        return Proc(Proc.commands[cmd], context)
+@contextmanager
+def ShellContextManager():
+    if len(context_stack) > 0:
+        parent = context_stack[-1]
     else:
-        return ShellProc(cmd, context)
+        parent = None
+
+    shell_context = ShellContext(parent)
+    context_stack.append(shell_context)
+    try:
+        yield shell_context
+    finally:
+        context_stack.pop()
+
+def execute(cmd):
+    print('execute %s' % cmd)
+    return context_stack[-1].execute(cmd)
+
+class ShellCommandToken(object):
+    def __init__(self, token, text):
+        self._token = token
+        self._text = text
+
+    @property
+    def token(self):
+        return self._token
+
+    @property
+    def text(self):
+        return self._text
+
+    def __repr__(self):
+        return self._text
+
+
+def interpret_command(cmd, context):
+    tokens = shlex.split(cmd)
+    return tokens
+
+def lookup_command(tokens, context):
+    if (tokens[0] in Proc.commands):
+        return Proc(tokens, context)
+    else:
+        proc = ShellProc(tokens, context)
+        proc.start()
+        return proc
 
 class ShellContext(object):
-
-    def __init__(self, cwd):
+    def __init__(self, parent=None, cwd=os.getcwd()):
+        self._parent = parent
         self._cwd = cwd
-        self._cmd = Proc('', self)
+        self._cmd = Proc([], self)
+        self.h = socket.gethostname()
+        self.u = os.environ['LOGNAME']
 
     def execute(self, cmd):
+        cmd = interpret_command(cmd, self)
+        if cmd[0] == 'cd' and len(cmd) > 1:
+            os.chdir(cmd[1])
+            if not self._cwd == os.getcwd():
+                self._cwd = os.getcwd()
+            else:
+                print("Directory '%s' doesn't exist." % cmd[1])
         self._cmd = lookup_command(cmd, self)
+
         return self._cmd
 
     @property
@@ -31,7 +86,8 @@ class ShellContext(object):
 
 class Proc(object):
     commands = {
-        "exit": "exit"
+        "exit": "exit",
+        "detach": "detach"
     }
     def __init__(self, command, context):
         self._command=command
@@ -44,16 +100,16 @@ class Proc(object):
 
     @property
     def value(self):
-        return self._command
+        return " ".join(self._command)
 
     def __repr__(self):
         return self.value
 
-    def start():
+    def start(self):
         self._running = True
         pass
 
-    def abort():
+    def abort(self):
         self._running = False
         pass
 
@@ -62,3 +118,8 @@ class ShellProc(Proc):
     def kill(self):
         self.abort()
 
+    def start(self):
+        output = sudo_check_call('root', self.value)
+        print(output)
+        #self._process = subprocess.Popen(self.value, shell=True)
+        #self._running = True

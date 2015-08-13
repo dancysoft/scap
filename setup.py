@@ -20,11 +20,13 @@ setup(name='Scap',
       entry_points={
         'console_scripts': [
             'scap = scap.scap',
+            'iscap = scap.iscap'
         ]
       },
       install_requires=[
         "psutil",
         "netifaces",
         'prompt-toolkit==0.41',
+        'tmuxp'
       ],
      )

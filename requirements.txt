@@ -1,3 +1,4 @@
 psutil
 netifaces
 prompt-toolkit
+tmuxp

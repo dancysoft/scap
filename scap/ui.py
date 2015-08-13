@@ -1,29 +1,63 @@
 from string import Formatter
-from pygments.token import Token
-from pygments.style import Style
-from pygments.styles.default import DefaultStyle
+from pygments.token import Token, string_to_tokentype
+from prompt_toolkit.styles import DefaultStyle
+from prompt_toolkit.layout.controls import UIControl
+scap_styles = {
+    Token: '#dddddd',
+    Token.Text: '#f6f6f6',
+    Token.Prompt: '#dddddd',
+    Token.Env: '#aaccff',
+    Token.Toolbar: '#9999ff bg:#333333',
+    Token.Toolbar.Text: '#999999',
+    Token.Toolbar.Value: '#cccc33',
+    Token.Name.Variable: "#aaccff",
+}
 
-class ScapStyle(Style):
-    styles = DefaultStyle.styles.copy()
-    styles.update({
-        Token: '#cccccc',
-        Token.Text: '#eeeeee',
-        Token.Prompt: '#aaaaaa',
-        Token.Toolbar: '#9999ff bg:#333333',
-        Token.Toolbar.Text: '#999999',
-        Token.Toolbar.Value: '#cccc33',
-        Token.Name.Variable: "#aaccff",
-    })
+class ScapStyle(DefaultStyle):
+    styles = {}
+    styles.update(scap_styles)
+    styles.update(DefaultStyle.styles)
 
 def get_prompt_tokens(context):
-    return tokenize_string("u@{cwd@Prompt} scap> ", context, text_token=Token.Prompt)
+    return tokenize_string("{u@Env}@{h@Env}:{cwd@Env} > ", context,
+                            text_token=Token.Prompt)
 
 def get_toolbar_tokens(context):
-    return tokenize_string("cwd: {cwd} | {cmd:Last Command}", context)
+    return tokenize_string("cwd: {cwd} | {cmd:Last Command}", context,
+                            Token.Toolbar.Text,
+                            Token.Toolbar.Value)
+
+
+class TerminalControl(UIControl):
+    """
+    a prompt_toolkit UIControl that uses pexpect's terminal emulator
+    """
+    def __init__(self):
+        self.character = ' '
+        self.token = Token
+        self.term = pexpect.ANSI.ANSI(r=24, c=80)
+
+    def __repr__(self):
+        return '%s(character=%r, token=%r)' % (
+            self.__class__.__name__, self.character, self.token)
+
+    def reset(self):
+        pass
+
+    def has_focus(self, cli):
+        return False
+
+    def create_screen(self, cli, width, height):
+        char = Char(' ', self.token)
+        screen = Screen(width, char)
+        screen.write_data(str(self.term), width)
+        screen.current_height = height
+        return screen
+
 
 def tokenize_string(text, values,
-                    text_token=Token.Toolbar.Text,
-                    value_token=Token.Toolbar.Value):
+                    text_token=Token.Text,
+                    value_token=Token.Value):
     fmt = Formatter()
     tokens = []
     parsed = fmt.parse(text)
@@ -39,7 +73,7 @@ def tokenize_string(text, values,
                 # @Style in the format string overrides the style token used
                 # for this ui element
                 key, _, style = key.partition('@')
-                vt = getattr(Token, style)
+                vt = string_to_tokentype(style)
             else:
                 # use default (or caller-provided) style token
                 vt = value_token
