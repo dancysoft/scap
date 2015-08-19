@@ -9,9 +9,9 @@ from prompt_toolkit.history import FileHistory
 from pygments.token import Token
 from context import ShellContextManager
 from pygments.lexers.shell import BashLexer
-import pexpect
+#import pexpect
 import ui
-import click
+#import click
 import os
 import shlex
 import sys
