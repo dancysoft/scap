@@ -317,14 +317,20 @@ def sudo_check_call(user, cmd, logger=None):
     proc = subprocess.Popen('sudo -u %s -n -- %s' % (user, cmd),
         stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True)
 
+    output = []
+
     while proc.poll() is None:
         line = proc.stdout.readline().strip()
         if line:
+            output.append(line)
             logger.debug(line)
 
-    if proc.returncode:
-        raise subprocess.CalledProcessError(proc.returncode, cmd)
+    output = "\n".join(output)
 
+    if proc.returncode:
+        raise subprocess.CalledProcessError(proc.returncode, cmd, output)
+
+    return output
 
 def check_valid_json_file(path):
     if not path.endswith('.json'):
