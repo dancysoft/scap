@@ -598,7 +598,7 @@ def git_fetch(location, repo, user="mwdeploy"):
     """Fetch a git repo to a location as a user
     """
     if utils.is_git_dir(location):
-        git_remote_set(location, repo)
+        git_remote_set(location, repo, user=user)
         with utils.cd(location):
             cmd = '/usr/bin/git fetch'
             utils.sudo_check_call(user, cmd)

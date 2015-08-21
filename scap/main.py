@@ -603,7 +603,7 @@ class DeployLocal(cli.Application):
         tasks.git_checkout(location, rev, has_submodules, repo_user)
 
         if service_name is not None:
-            tasks.restart_service(service_name)
+            tasks.restart_service(service_name, user=repo_user)
 
         if service_port is not None:
             tasks.check_port(int(service_port))
@@ -679,7 +679,7 @@ class Deploy(cli.Application):
                 deploy_rev = ssh.Job(
                     hosts=targets, user=self.config['ssh_user'])
                 deploy_rev.command(deploy_local_cmd).progress('deploy_' + repo)
-                succeeded, failed = deploy_rev.run()
+                succeeded, failed = deploy_rev.run(batch_size=batch_size)
 
                 if failed:
                     logger.warning('%d targets had deploy errors', failed)
