@@ -27,6 +27,7 @@ setup(name='Scap',
         "psutil",
         "netifaces",
         'prompt-toolkit==0.41',
-        'tmuxp'
+        'tmuxp',
+        'jinja2',
       ],
      )

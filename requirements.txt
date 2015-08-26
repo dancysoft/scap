@@ -2,3 +2,4 @@ psutil
 netifaces
 prompt-toolkit
 tmuxp
+jinja2
