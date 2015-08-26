@@ -60,14 +60,27 @@ def main():
         def prompt_token_callback(cli):
             return ui.get_prompt_tokens(context)
 
+        if (not 'TMUX' in os.environ):
+            tmux = tmuxp.Server();
+            print(tmux.attached_sessions)
+            if tmux.has_session('iscap'):
+                print ('error: iscap session already running. Try reattaching with `tmux attach`')
+                exit(1)
+            script = os.path.realpath(sys.argv[0])
+            reattach = os.path.join(os.path.dirname(os.path.dirname(script)),'bin','iscap-reattach')
+            os.execl(reattach,'')
+
         tmux = tmuxp.Server();
         if tmux.has_session('iscap'):
+            #args = ('attach','-t','iscap')
+            #os.execvp('tmux', args)
+            #session = tmux.new_session(session_name="iscap", attach_if_exists=True)
             session = tmux.findWhere({'session_name': 'iscap'})
+            #tmux.attach_session(session)
         else:
             session = tmux.new_session(session_name="iscap", attach_if_exists=True)
-
-        win = session.new_window(attach=False)
-        win = session.new_window(attach=False)
+            win = session.new_window(attach=False)
+            win = session.new_window(attach=False)
 
         history_file = FileHistory(os.path.expanduser('~/.iscap_history'))
 
@@ -79,13 +92,18 @@ def main():
                              lexer=BashLexer, style=ui.ScapStyle
                              )
             if len(cmd) > 0:
-                cmd = context.execute(cmd)
-                if cmd.value == "exit":
-                    session.kill_session()
-                    break
-                elif cmd.value == "detach":
-                    tmux.cmd("detach-client")
-                    break
+                try:
+                    cmd = context.execute(cmd)
+                    if cmd.value == "exit":
+                        session.kill_session()
+                    elif cmd.value == "detach":
+                        tmux.cmd("detach-client")
+                    else:
+                        print cmd
+                        #tmux.cmd(cmd.value())
+                finally:
+                    pass
+
 
 if __name__ == '__main__':
     main()

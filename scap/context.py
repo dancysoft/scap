@@ -47,7 +47,6 @@ def lookup_command(tokens, context):
         return Proc(tokens, context)
     else:
         proc = ShellProc(tokens, context)
-        proc.start()
         return proc
 
 class ShellContext(object):
@@ -66,7 +65,9 @@ class ShellContext(object):
                 self._cwd = os.getcwd()
             else:
                 print("Directory '%s' doesn't exist." % cmd[1])
-        self._cmd = lookup_command(cmd, self)
+            self._cmd = Proc(cmd,self)
+        else:
+            self._cmd = lookup_command(cmd, self)
 
         return self._cmd
 
@@ -119,6 +120,7 @@ class ShellProc(Proc):
         self.abort()
 
     def start(self):
+        self._running = True
         output = sudo_check_call('root', self.value)
         print(output)
         #self._process = subprocess.Popen(self.value, shell=True)
