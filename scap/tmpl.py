@@ -6,13 +6,14 @@
 
 """
 
+import project
 from jinja2 import Environment, FileSystemLoader
 import os
 import io
 
-template_path = os.path.join(os.path.curdir(), 'scap', 'templates')
-
+template_path = project.project.template_path
 env = Environment(loader=FileSystemLoader(template_path))
+print "template_path: %s" % template_path
 
 class ConfigTemplate:
     """
@@ -28,7 +29,7 @@ class ConfigTemplate:
         elif templates != None:
             self.template = env.select_template(names=templates)
         else:
-            throw new ValueError('You must provide a value for either [template] or [templates]')
+            raise ValueError('You must provide a value for either [template] or [templates]')
         self.context = context
         self.output_file = output_file
 

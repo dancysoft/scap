@@ -1,6 +1,6 @@
 #!/usr/bin/env python2
 """
-Simple example showing a bottom toolbar.
+Interactive deployment shell
 """
 from __future__ import unicode_literals
 from prompt import get_input
