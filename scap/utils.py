@@ -332,6 +332,7 @@ def sudo_check_call(user, cmd, logger=None):
 
     return output
 
+
 def check_valid_json_file(path):
     if not path.endswith('.json'):
         return
@@ -549,13 +550,17 @@ def git_sha(location, rev='HEAD'):
         return subprocess.check_output(cmd, shell=True).strip()
 
 
-def generate_json_tag(user=get_real_username(), location=os.getcwd()):
+@inside_git_dir
+def generate_json_tag(location, user=get_real_username()):
     """Generates a json object"""
-    timestamp = datetime.utcnow().strftime('%Y%m%d-%H%M%S')
-    tag = '{0}-{1}-{2}'.format(location, 'sync', timestamp)
+    timestamp = datetime.utcnow()
+    date = timestamp.strftime('%Y-%m-%d')
+    cmd = '/usr/bin/git tag --list scap/sync/{}/*'.format(date)
+    seq = subprocess.check_output(cmd, shell=True).strip().count('\n') + 1
+    tag = 'scap/sync/{0}/{1:04d}'.format(date, seq)
     tag_info = {
         'tag': tag,
-        'timestamp': timestamp,
+        'timestamp': timestamp.isoformat(),
         'user': user,
     }
 

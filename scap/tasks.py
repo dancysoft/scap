@@ -665,13 +665,11 @@ def git_tag_repo(tag, tag_info, rev='HEAD', location=os.getcwd()):
         cmd = """
         /usr/bin/git tag -fa \\
                 -m 'user {0}' \\
-                -m 'timestamp {1}' \\
-                -m 'rev {2}' --\\
-                {3} {4}
+                -m 'timestamp {1}' -- \\
+                {2} {3}
         """.format(
             tag_info['user'],
             tag_info['timestamp'],
-            rev,
             tag,
             rev
         )
