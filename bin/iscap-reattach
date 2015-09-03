@@ -1,2 +1,3 @@
 #!/usr/bin/env bash
-tmux new-session -A -s iscap scap/iscap.py
+echo "1 $1"
+tmux new-session -A -s iscap $1/bin/iscap

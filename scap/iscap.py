@@ -3,7 +3,7 @@
 Interactive deployment shell
 """
 from __future__ import unicode_literals
-from prompt import get_input
+from prompt_toolkit.shortcuts import get_input
 from prompt_toolkit.filters import Always
 from prompt_toolkit.history import FileHistory
 from pygments.token import Token
@@ -60,15 +60,17 @@ def main():
         def prompt_token_callback(cli):
             return ui.get_prompt_tokens(context)
 
-        if (not 'TMUX' in os.environ):
+        if not 'TMUX' in os.environ:
             tmux = tmuxp.Server();
-            print(tmux.attached_sessions)
+            #print(tmux.attached_sessions())
             if tmux.has_session('iscap'):
                 print ('error: iscap session already running. Try reattaching with `tmux attach`')
                 exit(1)
             script = os.path.realpath(sys.argv[0])
-            reattach = os.path.join(os.path.dirname(os.path.dirname(script)),'bin','iscap-reattach')
-            os.execl(reattach,'')
+            scap_root = os.path.dirname(os.path.dirname(script))
+            reattach = os.path.join(scap_root,'bin','iscap-reattach')
+            print scap_root
+            os.execlp(reattach,scap_root,scap_root)
 
         tmux = tmuxp.Server();
         if tmux.has_session('iscap'):
