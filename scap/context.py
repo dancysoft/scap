@@ -46,7 +46,16 @@ def lookup_command(tokens, context):
     if (tokens[0] in Proc.commands):
         return Proc(tokens, context)
     else:
-        proc = ShellProc(tokens, context)
+        try:
+            cmd_module = __import__("cmds.%s" % tokens[0], fromlist=["cmds"])
+            proc = Proc(tokens, context)
+            if len(tokens) > 1 and hasattr(cmd_module, tokens[1]):
+                proc._run = getattr(cmd_module, tokens[1])
+            else:
+                proc._run = cmd_module.run
+        except:
+            proc = ShellProc(tokens, context)
+
         return proc
 
 class ShellContext(object):
@@ -72,12 +81,29 @@ class ShellContext(object):
         return self._cmd
 
     @property
+    def project_name(self):
+        return self.project.project_name
+
+    @property
+    def project_root(self):
+        return self.project.project_root
+
+    @property
     def cmd(self):
         return self._cmd
 
     @property
     def cwd(self):
         return self._cwd
+
+    @property
+    def rcwd(self):
+        relpath = self._cwd.replace(self.project_root, '')
+        if relpath == '':
+            relpath = '/'
+        return relpath
+
+
     @cwd.setter
     def cwd(self, cwd):
         self._cwd=cwd
@@ -103,17 +129,31 @@ class Proc(object):
     def value(self):
         return " ".join(self._command)
 
+    def args(self):
+        return self._command
+
     def __repr__(self):
         return self.value
 
+    def __len__(self):
+        return self._command.__len__()
+
+    def __getitem__(self, key):
+        return self._command.__getitem__(key)
+
+    def __setitem__(self, key, value):
+        return self._command.__setitem__(key, value)
+
     def start(self):
         self._running = True
+        if hasattr(self, '_run'):
+            args = self._command[1:]
+            self._run(*args)
         pass
 
     def abort(self):
         self._running = False
         pass
-
 
 class ShellProc(Proc):
     def kill(self):

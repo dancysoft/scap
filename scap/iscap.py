@@ -16,6 +16,7 @@ import os
 import shlex
 import sys
 import tmuxp
+from scap.project import ScapProject
 
 sys.path.append(os.getcwd())
 
@@ -46,6 +47,7 @@ class LogStreamWrapper(object):
 
 
 def main():
+
     #orig_stderr = sys.stderr
     #stderr_wrapper = LogStreamWrapper(orig_stderr)
     #sys.stderr = stderr_wrapper
@@ -85,7 +87,8 @@ def main():
             win = session.new_window(attach=False)
 
         history_file = FileHistory(os.path.expanduser('~/.iscap_history'))
-
+        context.project = ScapProject()
+        
         while True:
             cmd = get_input(get_prompt_tokens=prompt_token_callback,
                              get_bottom_toolbar_tokens=toolbar_token_callback,
@@ -101,7 +104,10 @@ def main():
                     elif cmd.value == "detach":
                         tmux.cmd("detach-client")
                     else:
-                        print cmd
+                        try:
+                            cmd.start()
+                        except:
+                            print "Command not found: %s" % cmd[0]
                         #tmux.cmd(cmd.value())
                 finally:
                     pass

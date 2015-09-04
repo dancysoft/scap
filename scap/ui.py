@@ -7,9 +7,10 @@ scap_styles = {
     Token.Text: '#f6f6f6',
     Token.Prompt: '#dddddd',
     Token.Env: '#aaccff',
+    Token.Attr: '#6699bb',
     Token.Toolbar: '#9999ff bg:#333333',
     Token.Toolbar.Text: '#999999',
-    Token.Toolbar.Value: '#cccc33',
+    Token.Toolbar.Value: '#aaccff',
     Token.Name.Variable: "#aaccff",
 }
 
@@ -19,11 +20,11 @@ class ScapStyle(DefaultStyle):
     styles.update(DefaultStyle.styles)
 
 def get_prompt_tokens(context):
-    return tokenize_string("{u@Env}@{h@Env}:{cwd@Env} > ", context,
+    return tokenize_string("# {project_name@Attr}{rcwd@Env} > ", context,
                             text_token=Token.Prompt)
 
 def get_toolbar_tokens(context):
-    return tokenize_string("cwd: {cwd} | {cmd:Last Command}", context,
+    return tokenize_string("User: {u} | {project_name:Project} | cwd: {project_root@Attr}{rcwd@Env} | {cmd:Last Command}", context,
                             Token.Toolbar.Text,
                             Token.Toolbar.Value)
 

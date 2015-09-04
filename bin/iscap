@@ -14,10 +14,6 @@ scap_src = os.path.dirname(os.path.dirname(script))
 sys.path.append(scap_src)
 
 import scap
-from scap.project import ScapProject
-
-proj = ScapProject()
-#print proj
 
 import scap.iscap
 scap.iscap.main()

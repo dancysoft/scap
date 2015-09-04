@@ -85,7 +85,9 @@ class ScapProject(object):
         self.project_name = os.path.basename(self.project_root)
         self.template_path = join_path(self.scap_dir, 'templates')
         if not self.project_root in sys.path:
-            sys.path.append(self.project_root)
+            sys.path.append(self.scap_dir)
+
+        self.command_path = join_path(self.scap_dir, 'cmds')
 
     def relative_path(self, *args):
         """ build a path relative to the project root """
