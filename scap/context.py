@@ -47,13 +47,9 @@ def lookup_command(tokens, context):
         return Proc(tokens, context)
     else:
         try:
-            cmd_module = __import__("cmds.%s" % tokens[0], fromlist=["cmds"])
-            proc = Proc(tokens, context)
-            if len(tokens) > 1 and hasattr(cmd_module, tokens[1]):
-                proc._run = getattr(cmd_module, tokens[1])
-            else:
-                proc._run = cmd_module.run
-        except:
+            proc = ProjectCommand(tokens, context)
+        except Exception as ex:
+            print ex
             proc = ShellProc(tokens, context)
 
         return proc
@@ -146,14 +142,30 @@ class Proc(object):
 
     def start(self):
         self._running = True
-        if hasattr(self, '_run'):
-            args = self._command[1:]
-            self._run(*args)
-        pass
 
     def abort(self):
         self._running = False
         pass
+
+class ProjectCommand(Proc):
+    def __init__(self, command, context):
+
+        self._context=context
+        self._running=False
+        cmd_module = __import__("cmds.%s" % command[0], fromlist=["cmds"])
+
+        if len(command) > 1 and hasattr(cmd_module, command[1]):
+            command = command[1:]
+            self._run = getattr(cmd_module, command[0])
+        else:
+            self._run = cmd_module.run
+        self._command=command
+
+    def start(self):
+        self._running = True
+        if hasattr(self, '_run'):
+            args = self._command[1:]
+            self._run(*args)
 
 class ShellProc(Proc):
     def kill(self):
