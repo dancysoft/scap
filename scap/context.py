@@ -1,6 +1,8 @@
 import os, socket, subprocess, shlex
 from contextlib import contextmanager
 from scap.utils import sudo_check_call
+from scap.project import ScapProject
+
 context_stack = []
 
 @contextmanager
@@ -61,6 +63,8 @@ class ShellContext(object):
         self._cmd = Proc([], self)
         self.h = socket.gethostname()
         self.u = os.environ['LOGNAME']
+        self._project = ScapProject()
+        self._commands = None
 
     def execute(self, cmd):
         cmd = interpret_command(cmd, self)
@@ -77,12 +81,16 @@ class ShellContext(object):
         return self._cmd
 
     @property
+    def project(self):
+        return self._project
+
+    @property
     def project_name(self):
-        return self.project.project_name
+        return self._project.project_name
 
     @property
     def project_root(self):
-        return self.project.project_root
+        return self._project.project_root
 
     @property
     def cmd(self):
@@ -94,15 +102,28 @@ class ShellContext(object):
 
     @property
     def rcwd(self):
+        ''' The current working directory, relative to the project root '''
         relpath = self._cwd.replace(self.project_root, '')
         if relpath == '':
             relpath = '/'
         return relpath
 
-
     @cwd.setter
     def cwd(self, cwd):
         self._cwd=cwd
+
+    @property
+    def commands(self):
+        if self._commands is None:
+            cmds = {}
+            if os.path.exists(self._project.command_path):
+                for filename in os.listdir(self._project.command_path):
+                    if filename.endswith('.py'):
+                        cmd_name = os.path.basename(filename)
+                        cmd_name = cmd_name[:-3]
+                        cmds[cmd_name] = ProjectCommand([cmd_name], self)
+            self._commands = cmds
+        return self._commands
 
     def __getitem__(self, key):
         return getattr(self, key)
@@ -148,8 +169,24 @@ class Proc(object):
         pass
 
 class ProjectCommand(Proc):
-    def __init__(self, command, context):
+    '''
+    Project-level commands are implemented in python modules which get
+    dynamically loaded from project_root/scap/cmds/*.py
 
+    The command name is the module's file name. The command entrypoint is
+    the 'run' method within the command module. To add subcommands to a
+    command module simply simply add functions that follow the following
+    naming convention:
+
+    Any function that starts with run_ followed by the name of the sub
+    command defines a callable sub command under the top-level command that
+    is defined in that same module. For example:
+
+        `run_{subcommand}(*args)` - adds a sub command named "subcommand"
+    '''
+
+    def __init__(self, command, context):
+        self.subcommands=[]
         self._context=context
         self._running=False
         cmd_module = __import__("cmds.%s" % command[0], fromlist=["cmds"])
@@ -157,15 +194,21 @@ class ProjectCommand(Proc):
         if len(command) > 1 and hasattr(cmd_module, command[1]):
             command = command[1:]
             self._run = getattr(cmd_module, command[0])
-        else:
+        elif hasattr(cmd_module, 'run'):
             self._run = cmd_module.run
+            for i in dir(cmd_module):
+                if i.startswith('run_'):
+                    self.subcommands.append(i[4:])
+        else:
+            self._run = None
         self._command=command
 
     def start(self):
         self._running = True
-        if hasattr(self, '_run'):
+        if self._run is not None:
             args = self._command[1:]
             self._run(*args)
+        self._running = False
 
 class ShellProc(Proc):
     def kill(self):

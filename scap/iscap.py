@@ -8,6 +8,7 @@ from prompt_toolkit.filters import Always
 from prompt_toolkit.history import FileHistory
 from pygments.token import Token
 from context import ShellContextManager
+from completion import ScapCompleter
 from pygments.lexers.shell import BashLexer
 #import pexpect
 import ui
@@ -16,7 +17,6 @@ import os
 import shlex
 import sys
 import tmuxp
-from scap.project import ScapProject
 
 sys.path.append(os.getcwd())
 
@@ -87,14 +87,14 @@ def main():
             win = session.new_window(attach=False)
 
         history_file = FileHistory(os.path.expanduser('~/.iscap_history'))
-        context.project = ScapProject()
-        
+        command_completer = ScapCompleter(context)
+
         while True:
             cmd = get_input(get_prompt_tokens=prompt_token_callback,
                              get_bottom_toolbar_tokens=toolbar_token_callback,
                              enable_system_bindings=Always(),
-                             history=history_file,
-                             lexer=BashLexer, style=ui.ScapStyle
+                             history=history_file, completer=command_completer,
+                             lexer=BashLexer, style=ui.ScapStyle,
                              )
             if len(cmd) > 0:
                 try:
