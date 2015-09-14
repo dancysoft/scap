@@ -16,6 +16,7 @@ import pwd
 import random
 import re
 import socket
+import string
 import struct
 import subprocess
 import tempfile
@@ -262,6 +263,20 @@ def lock(filename):
             os.unlink(filename)
 
 
+@contextlib.contextmanager
+def cd(dirname):
+    """Context manager. Cds to dirname, moves back to previous dir on context exit
+
+    :param dirname: directory into which it should change
+    """
+    old_path = os.getcwd()
+    try:
+        os.chdir(dirname)
+        yield
+    finally:
+        os.chdir(old_path)
+
+
 def md5_file(path):
     """Compute the md5 checksum of a file's contents.
 
@@ -491,3 +506,137 @@ def read_pid(path):
         return int(open(path).read().strip())
     except IOError as e:
         raise IOError(e.errno, e.strerror, path)
+
+
+def inside_git_dir(func):
+    """Decorator to determine if the "location" argument is a git directory"""
+    def wrapper(*args, **kwargs):
+        argspec = inspect.getargspec(func)
+        try:
+            l = args[argspec.args.index('location')]
+        except IndexError:
+            l = None
+
+        if l is None and argspec.defaults is not None:
+            d = dict(zip(
+                argspec.args[-len(argspec.defaults):],
+                argspec.defaults
+            ))
+            l = kwargs.get('location', d.get('location'))
+
+        if l is None or not is_git_dir(l):
+            raise IOError(errno.ENOENT, 'Location is not a git repo', l)
+
+        return func(*args, **kwargs)
+    return wrapper
+
+
+def is_git_dir(path):
+    """Checks if path is a git, doesn't count submodule directories"""
+    git_path = os.path.join(
+        os.path.abspath(os.path.expandvars(os.path.expanduser(path))),
+        '.git'
+    )
+    return (os.path.isdir(git_path) and
+            os.path.isdir(os.path.join(git_path, 'objects')) and
+            os.path.isdir(os.path.join(git_path, 'refs')) and
+            os.path.isfile(os.path.join(git_path, 'HEAD')))
+
+
+@inside_git_dir
+def git_sha(location, rev='HEAD'):
+    """Returns SHA1 for things like HEAD or HEAD~~"""
+    with cd(location):
+        cmd = '/usr/bin/git rev-parse --verify {}'.format(rev)
+        return subprocess.check_output(cmd, shell=True).strip()
+
+
+@inside_git_dir
+def generate_json_tag(location, user=get_real_username()):
+    """Generates a json object"""
+    with cd(location):
+        timestamp = datetime.utcnow()
+        date = timestamp.strftime('%F')
+        cmd = ['/usr/bin/git', 'tag', '--list']
+        cmd.append('scap/sync/{}/*'.format(date))
+        seq = len(subprocess.check_output(cmd).splitlines()) + 1
+        tag = 'scap/sync/{0}/{1:04d}'.format(date, seq)
+        tag_info = {
+            'tag': tag,
+            'timestamp': timestamp.isoformat(),
+            'user': user,
+        }
+
+        return (tag, tag_info)
+
+
+def get_target_hosts(pattern, hosts):
+    """Returns a subset of hosts based on wildcards
+
+    if the pattern can specify a range of the format '[start:end]'
+
+    if the supplied pattern begins with ``~`` then it is treated as a
+    regular expression.
+
+    If the pattern begins with ``!`` then it is negated.
+    """
+    # Return early if there's no special pattern
+    if pattern == '*' or pattern == 'all':
+        return hosts
+
+    # If pattern is a regex, handle that and return
+    if pattern[0] == '~':
+        regex = re.compile(pattern[1:])
+        return [target for target in hosts if regex.match(target)]
+
+    # Handle replacements of anything like [*:*] in pattern
+    has_range = lambda x: 0 <= x.find('[') < x.find(':') < x.find(']')
+
+    patterns = []
+    rpattern = pattern
+    while(has_range(rpattern)):
+        head, nrange, tail = rpattern.replace(
+            '[', '|', 1).replace(']', '|', 1).split('|')
+
+        beg, end = nrange.split(':')
+        zfill = len(end) if (len(beg) > 0 and beg.startswith('0')) else 0
+
+        if (zfill != 0 and len(beg) != len(end)) or beg > end:
+            raise ValueError("Host range incorrectly specified")
+
+        try:
+            asc = string.ascii_letters
+            seq = asc[asc.index(beg):asc.index(end) + 1]
+        except ValueError:  # numeric range
+            seq = range(int(beg), int(end) + 1)
+
+        patterns = [''.join([head, str(i).zfill(zfill), tail]) for i in seq]
+        rpattern = rpattern[rpattern.find(']') + 1:]
+
+    # If there weren't range replacements, make pattern an array
+    if len(patterns) == 0:
+        patterns = [pattern]
+
+    targets = []
+    for pattern in patterns:
+        # remove any leading '!'
+        test_pattern = pattern.lstrip('!')
+
+        # change '.' to literal period
+        test_pattern = test_pattern.replace('.', '\.')
+
+        # convert '*' to match a-Z, 0-9, _, -, or .
+        test_pattern = test_pattern.replace('*', '[\w\.-]*')
+
+        # Add beginning and end marks
+        test_pattern = '^{}$'.format(test_pattern)
+
+        regex = re.compile(test_pattern)
+
+        targets.extend([host for host in hosts if regex.match(host)])
+
+    # handle regation of patterns by inverting
+    if pattern.startswith('!'):
+        targets = list(set(targets) ^ set(hosts))
+
+    return targets
