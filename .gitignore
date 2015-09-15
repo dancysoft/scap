@@ -5,6 +5,7 @@
 /.tox
 /.venv
 /build
+/cover
 /dist
 /docs/_build
 .iscap_history
