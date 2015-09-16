@@ -9,6 +9,7 @@ import contextlib
 import errno
 import fcntl
 import hashlib
+import inspect
 import json
 import logging
 import os
@@ -20,7 +21,6 @@ import string
 import struct
 import subprocess
 import tempfile
-import inspect
 
 from . import ansi
 from datetime import datetime
@@ -343,20 +343,20 @@ def sudo_check_call(user, cmd, logger=None):
     proc = subprocess.Popen('sudo -u %s -n -- %s' % (user, cmd),
         stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True)
 
-    output = []
-
+    fullOut = []
     while proc.poll() is None:
         line = proc.stdout.readline().strip()
         if line:
-            output.append(line)
             logger.debug(line)
+            fullOut.append(line)
 
-    output = "\n".join(output)
+    # Consumes rest of stdout
+    leftover = proc.stdout.readlines()
+    map(logger.debug, leftover)
 
     if proc.returncode:
-        raise subprocess.CalledProcessError(proc.returncode, cmd, output)
-
-    return output
+        logger.error("Last output:\n" + '\n'.join(fullOut + leftover))
+        raise subprocess.CalledProcessError(proc.returncode, cmd)
 
 
 def check_valid_json_file(path):
