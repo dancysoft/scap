@@ -11,7 +11,6 @@ import fcntl
 import hashlib
 import inspect
 import json
-import logging
 import os
 import pwd
 import random
@@ -21,6 +20,7 @@ import string
 import struct
 import subprocess
 import tempfile
+import scap.log
 
 from . import ansi
 from datetime import datetime
@@ -282,7 +282,8 @@ def lock(filename):
 
 @contextlib.contextmanager
 def cd(dirname):
-    """Context manager. Cds to dirname, moves back to previous dir on context exit
+    """Context manager. Change working directory to dirname, then moves back to
+    previous dir on context exit
 
     :param dirname: directory into which it should change
     """
@@ -338,7 +339,7 @@ def sudo_check_call(user, cmd, logger=None):
     :raises: subprocess.CalledProcessError on non-zero process exit
     """
     if logger is None:
-        logger = logging.getLogger('sudo_check_call')
+        logger = scap.log.ctxLogger('sudo_check_call')
 
     proc = subprocess.Popen('sudo -u %s -n -- %s' % (user, cmd),
         stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True)
@@ -507,7 +508,7 @@ def sudo_temp_dir(owner, prefix):
     :param prefix: Temp directory prefix
     :returns: Full path to temporary directory
     """
-    logger = logging.getLogger('sudo_temp_dir')
+    logger = scap.log.ctxLogger('sudo_temp_dir')
 
     while True:
         dirname = os.path.join(tempfile.gettempdir(),
