@@ -279,7 +279,7 @@ class Application(object):
             app._load_config()
             app._setup_loggers()
             app._setup_environ()
-            with log.NestedLogContext(app.program_name):
+            with utils.context_logger(app.program_name):
                 exit_status = app.main(extra_args)
 
         except SystemExit as ex:

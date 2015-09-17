@@ -9,7 +9,6 @@ import contextlib
 import errno
 import fcntl
 import hashlib
-import inspect
 import json
 import os
 import pwd
@@ -20,10 +19,12 @@ import string
 import struct
 import subprocess
 import tempfile
-import scap.log
+import inspect
+import logging
 
 from . import ansi
 from datetime import datetime
+from functools import wraps
 
 
 class LockFailedError(Exception):
@@ -257,6 +258,56 @@ def iterate_subdirectories(root):
             yield subdir
 
 
+logger_stack = []
+
+
+@contextlib.contextmanager
+def context_logger(context_name, *args):
+    """
+    context_logger is a context manager that maintains nested logger
+    contexts. Each time you enter a with block using this context manager,
+    a named logger is set up as a child of the current logger.
+    When exiting the with block, the logger gets popped off the stack and
+    the parent logger takes it's place as the 'current' logging context.
+
+    The easiest way to use this is to decorate a function with log_context,
+    For Example::
+
+        @log_context('name')
+        def my_func(some, args, logger=None):
+            logger.debug('something')
+
+    """
+    if len(logger_stack) < 1:
+        logger_stack.append(logging.getLogger())
+
+    parent = logger_stack[-1]
+
+    logger = parent.getChild(context_name)
+    logger_stack.append(logger)
+    try:
+        yield logger
+    finally:
+        logger_stack.pop()
+
+
+def log_context(context_name):
+    """Decorator to wrap the a function in a new context_logger,
+       the logger is passed to the function via a kwarg named 'logger'"""
+    def arg_wrapper(func):
+        @wraps(func)
+        def context_wrapper(*args, **kwargs):
+            with context_logger(context_name) as logger:
+                kwargs['logger'] = logger
+                return func(*args, **kwargs)
+        return context_wrapper
+    return arg_wrapper
+
+
+def get_logger():
+    return logger_stack[-1]
+
+
 @contextlib.contextmanager
 def lock(filename):
     """Context manager. Acquires a file lock on entry, releases on exit.
@@ -329,6 +380,7 @@ def read_hosts_file(path):
         raise IOError(e.errno, e.strerror, path)
 
 
+@log_context('sudo_check_call')
 def sudo_check_call(user, cmd, logger=None):
     """Run a command as a specific user. Reports stdout/stderr of process
     to logger during execution.
@@ -338,9 +390,6 @@ def sudo_check_call(user, cmd, logger=None):
     :param logger: Logger to send process output to
     :raises: subprocess.CalledProcessError on non-zero process exit
     """
-    if logger is None:
-        logger = scap.log.ctxLogger('sudo_check_call')
-
     proc = subprocess.Popen('sudo -u %s -n -- %s' % (user, cmd),
         stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True)
 
@@ -501,15 +550,14 @@ def logo(color=True, **colors):
 
 
 @contextlib.contextmanager
-def sudo_temp_dir(owner, prefix):
+@log_context('sudo_temp_dir')
+def sudo_temp_dir(owner, prefix, logger=None):
     """Create a temporary directory and delete it after the block.
 
     :param owner: Directory owner
     :param prefix: Temp directory prefix
     :returns: Full path to temporary directory
     """
-    logger = scap.log.ctxLogger('sudo_temp_dir')
-
     while True:
         dirname = os.path.join(tempfile.gettempdir(),
             prefix + str(random.SystemRandom().randint(0, 0xffffffff)))

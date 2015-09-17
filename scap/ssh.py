@@ -7,14 +7,13 @@
 
 """
 import errno
-import logging
 import os
 import random
 import select
 import shlex
 import subprocess
 
-from . import log
+import scap.log
 from . import utils
 
 
@@ -23,18 +22,16 @@ SSH = ('/usr/bin/ssh', '-oBatchMode=yes', '-oSetupTimeout=10', '-F/dev/null')
 
 class Job(object):
     """Execute a job on a group of remote hosts via ssh."""
-    _logger = None
 
     def __init__(self, hosts=None, command=None, user=None):
         self.hosts(hosts or [])
         self._command = command
         self._reporter = None
         self._user = user
+        self._logger = utils.get_logger()
 
     def get_logger(self):
         """Lazy getter for a logger instance."""
-        if self._logger is None:
-            self._logger = logging.getLogger('scap.ssh.job')
         return self._logger
 
     def hosts(self, hosts):
@@ -61,12 +58,12 @@ class Job(object):
         return self
 
     def progress(self, label):
-        """Monitor job progress with a :class:`log.ProgressReporter`.
+        """Monitor job progress with a :class:`scap.log.ProgressReporter`.
 
         Use of this method changes the runtime behavior of :meth:`run` to
         return counts of successes and failures instead of a list of results.
         """
-        self._reporter = log.ProgressReporter(label)
+        self._reporter = scap.log.ProgressReporter(label)
         return self
 
     def run(self, batch_size=80):
@@ -94,8 +91,8 @@ class Job(object):
                                     batch_size))
 
     def _run_with_reporter(self, batch_size):
-        """Run job and feed results to a :class:`log.ProgressReporter` as they
-        come in."""
+        """Run job and feed results to a :class:`scap.log.ProgressReporter` as
+        they come in."""
         self._reporter.expect(len(self._hosts))
         self._reporter.start()
 
