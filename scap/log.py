@@ -23,51 +23,6 @@ import scap.utils
 # for attribute names you can include here.
 CONSOLE_LOG_FORMAT = '%(asctime)s %(levelname)-8s - %(message)s'
 
-logger_stack = []
-
-
-@contextmanager
-def NestedLogContext(name, *args):
-    """
-    NestedLogContext is a context manager that maintains nested logger
-    contexts. Each time you enter a with block using this context manager,
-    a named logger is set up as a child of the current logger.
-    When exiting the with block, the logger gets popped off the stack and
-    the parent logger takes it's place as the 'current' logging context.
-
-    The purpose of all this is so that static functions can retrieve the
-    current logging context via a global function call to getTopLogger, e.g:
-
-        from scap.log import ctxLogger
-
-        def do_something():
-            logger = ctxLogger() # get the logger for the current context
-            do_it()
-            logger.log('log something something')
-    """
-    if len(logger_stack) < 1:
-        logger_stack.append(logging.getLogger())
-
-    parent = logger_stack[-1]
-
-    logger = parent.getChild(name)
-    logger_stack.append(logger)
-    try:
-        yield logger
-    finally:
-        logger_stack.pop()
-
-
-def ctxLogger(name=None):
-    """ Get the inner-most logging context, initialialized by the use of
-    "with NestedLogContext(name)"
-    returns the root logger if no other loggers have been initialized.
-    """
-    if len(logger_stack) < 1:
-        logger_stack.push(logging.getLogger())
-    logger = logger_stack[-1]
-    return logger if name is None else logger.getChild(name)
-
 
 class AnsiColorFormatter(logging.Formatter):
     """Colorize output according to logging level."""

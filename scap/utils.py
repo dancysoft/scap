@@ -297,6 +297,9 @@ def log_context(context_name):
     def arg_wrapper(func):
         @wraps(func)
         def context_wrapper(*args, **kwargs):
+            if 'logger' in kwargs:
+                return func(*args, **kwargs)
+
             with context_logger(context_name) as logger:
                 kwargs['logger'] = logger
                 return func(*args, **kwargs)
