@@ -1,7 +1,8 @@
-import os, socket, subprocess, shlex
+import os, socket, subprocess, shlex, sys
 from contextlib import contextmanager
 from scap.utils import sudo_check_call
 from scap.project import ScapProject
+from mozprocess import processhandler
 
 context_stack = []
 
@@ -51,7 +52,7 @@ def lookup_command(tokens, context):
         try:
             proc = ProjectCommand(tokens, context)
         except Exception as ex:
-            print ex
+            #print ex
             proc = ShellProc(tokens, context)
 
         return proc
@@ -216,7 +217,18 @@ class ShellProc(Proc):
 
     def start(self):
         self._running = True
-        output = sudo_check_call('root', self.value)
-        print(output)
+
+        output_tty = open(self._context.output_tty, 'w')
+
+        def output_callback(line):
+            output_tty.write("<%s>\n" % line)
+        outputs = [output_callback]
+        command = self._command
+        p = processhandler.ProcessHandlerMixin(command,
+            processOutputLine=outputs)
+
+        p.run()
+        p.wait()
+        output_tty.close()
         #self._process = subprocess.Popen(self.value, shell=True)
         #self._running = True

@@ -86,6 +86,12 @@ def main():
             win = session.new_window(attach=False)
             win = session.new_window(attach=False)
 
+        tmux.cmd('split-window')
+
+        for pane in tmux._list_panes():
+            if pane['pane_id'] == '%1':
+                context.output_tty = pane['pane_tty']
+
         history_file = FileHistory(os.path.expanduser('~/.iscap_history'))
         command_completer = ScapCompleter(context)
 
