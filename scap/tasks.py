@@ -574,6 +574,7 @@ def restart_hhvm(hosts, cfg, batch_size=1):
         return restart.progress('restart_hhvm').run(batch_size=batch_size)
 
 
+
 @utils.inside_git_dir
 def git_remote_exists(location, remote):
     """Check if remote exists in location"""
@@ -611,7 +612,7 @@ def git_fetch(location, repo, user="mwdeploy"):
 def git_checkout(location, rev, submodules=False, user="mwdeploy"):
     """Checkout a git repo sha at a location as a user
     """
-    logger = scap.log.ctxLogger('git_checkout')
+    logger = logging.getLogger('git_checkout')
     with utils.cd(location):
         logger.debug(
             'Checking out rev: {} at location: {}'.format(rev, location))
@@ -626,7 +627,7 @@ def git_checkout(location, rev, submodules=False, user="mwdeploy"):
 
 def git_update_server_info(has_submodules=False, location=os.getcwd()):
     """runs git update-server-info and tags submodules"""
-    logger = scap.log.ctxLogger('git_update_server_info')
+    logger = logging.getLogger('git_update_server_info')
 
     with utils.cd(location):
         cmd = '/usr/bin/git update-server-info'
@@ -638,14 +639,14 @@ def git_update_server_info(has_submodules=False, location=os.getcwd()):
             subprocess.check_call(cmd, shell=True)
 
 
-@utils.log_context('git_deploy_file')
 @utils.inside_git_dir
-def git_update_deploy_head(deploy_info, location, logger=None):
+def git_update_deploy_head(deploy_info, location):
     """updates .git/DEPLOY_HEAD file
 
     :param deploy_info: current deploy info to write to file as JSON
     :param (optional) location: git directory location (default cwd)
     """
+    logger = logging.getLogger('git_deploy_file')
 
     with utils.cd(location):
         deploy_file = os.path.join(location, '.git', 'DEPLOY_HEAD')
@@ -674,15 +675,16 @@ def git_tag_repo(deploy_info, location=os.getcwd()):
         subprocess.check_call(cmd, shell=True)
 
 
-@utils.log_context('restart_service')
-def restart_service(service, user='mwdeploy', logger=None):
+def restart_service(service, user='mwdeploy'):
+    logger = logging.getLogger('service_restart')
+
     logger.debug('Restarting service {}'.format(service))
     cmd_format = 'sudo /usr/sbin/service {} {}'
-    utils.sudo_check_call(user, cmd_format.format(service, 'restart'))
+    utils.sudo_check_call(user, cmd_format.format(service, 'restart'), logger)
 
 
-@utils.log_context('check_port')
-def check_port(port_number, logger=None):
+def check_port(port_number):
+    logger = logging.getLogger('port_check')
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
     # Try this a few times while we wait for the service to come up
@@ -699,3 +701,18 @@ def check_port(port_number, logger=None):
         errno.ENOTCONN,
         "Specified port {} is not accepting connections".format(port_number)
     )
+
+
+def move_symlink(source, dest, user='mwdeploy', logger=None):
+    common_path = os.path.commonprefix([source, dest])
+    rsource = os.path.relpath(source, common_path)
+    rdest = os.path.relpath(dest, common_path)
+
+    with utils.cd(common_path):
+        utils.sudo_check_call(user,
+                              "ln -sfT '{}' '{}'".format(rsource, rdest),
+                              logger)
+
+
+def remove_symlink(path, user='mwdeploy', logger=None):
+    utils.sudo_check_call(user, "rm '{}'".format(path), logger)
