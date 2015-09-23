@@ -7,11 +7,11 @@ from prompt_toolkit.shortcuts import get_input
 from prompt_toolkit.filters import Always
 from prompt_toolkit.history import FileHistory
 from pygments.token import Token
-from context import ShellContextManager
-from completion import ScapCompleter
+from scap.prompt.context import ShellContextManager
+from scap.prompt.completion import ScapCompleter
 from pygments.lexers.shell import BashLexer
 #import pexpect
-import ui
+import scap.prompt.ui
 #import click
 import os
 import shlex
