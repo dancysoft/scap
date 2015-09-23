@@ -15,5 +15,5 @@ sys.path.append(scap_src)
 
 import scap
 
-import scap.iscap
-scap.iscap.main()
+import scap.prompt.iscap
+scap.prompt.iscap.main()

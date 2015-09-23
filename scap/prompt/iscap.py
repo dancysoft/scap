@@ -11,7 +11,7 @@ from scap.prompt.context import ShellContextManager
 from scap.prompt.completion import ScapCompleter
 from pygments.lexers.shell import BashLexer
 #import pexpect
-import scap.prompt.ui
+import scap.prompt.ui as ui
 #import click
 import os
 import shlex
