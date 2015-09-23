@@ -15,7 +15,7 @@ import subprocess
 
 import scap.log
 from . import utils
-
+from mozprocess import processhandler
 
 SSH = ('/usr/bin/ssh', '-oBatchMode=yes', '-oSetupTimeout=10', '-F/dev/null')
 
@@ -32,7 +32,7 @@ class Job(object):
 
     def get_logger(self):
         """Lazy getter for a logger instance."""
-        return self._logger
+        return utils.get_logger()
 
     def hosts(self, hosts):
         """Set hosts to run command on."""
@@ -84,11 +84,20 @@ class Job(object):
             else:
                 return []
 
-        if self._reporter:
-            return self._run_with_reporter(batch_size)
-        else:
-            return list(cluster_ssh(self._hosts, self._command, self._user,
-                                    batch_size, self.max_failure))
+        #if self._reporter:
+        #    return self._run_with_reporter(batch_size)
+        #else:
+        if True:
+
+            failed = 0
+            outputs = {}
+            for host, status, output in cluster_ssh_threaded(
+                self._hosts, self._command, self._user, batch_size,
+                self.max_failure):
+                if status > 0:
+                    failed += 1
+                outputs[host] = output
+            return (len(outputs)-failed, failed, outputs)
 
     def _run_with_reporter(self, batch_size):
         """Run job and feed results to a :class:`scap.log.ProgressReporter` as
@@ -171,3 +180,69 @@ def cluster_ssh(hosts, command, user=None, limit=80, max_fail=None):
         poll.close()
         for pid, (proc, host) in procs.items():
             proc.kill()
+
+def cluster_ssh_threaded(hosts, command, user=None, limit=80, max_fail=None):
+    """Run a command via SSH on multiple hosts concurrently."""
+    hosts = set(hosts)
+    # Ensure a minimum batch size of 1
+    limit = max(limit, 1)
+
+    max_failure = len(hosts) if max_fail is None else max_fail
+
+    try:
+        command = shlex.split(command)
+    except AttributeError:
+        pass
+
+    failures = 0
+    procs = {}
+    finished = {}
+    fds = {}
+    #poll = select.epoll()
+    try:
+        def output_callback(host):
+            def print_line(line):
+                print "%s: %s\n" % (host, line)
+
+            return print_line
+
+        def finish_callback(cmd):
+            def final_callback():
+                print "Finished %s" % cmd
+                finished[cmd] = procs[cmd]
+                del procs[cmd]
+
+            return final_callback
+
+        while hosts or len(procs):
+            if hosts and len(procs) < limit:
+                host = hosts.pop()
+                ssh_command = list(SSH)
+                if user:
+                    ssh_command.append('-l%s' % user)
+                ssh_command.append(host)
+                ssh_command.extend(command)
+                #proc = subprocess.Popen(ssh_command, stdout=subprocess.PIPE,
+                #        stderr=subprocess.STDOUT, preexec_fn=os.setsid)
+                #procs[proc.pid] = (proc, host)
+                #poll.register(proc.stdout, select.EPOLLIN)
+
+                cmdkey = " ".join(ssh_command)
+                p = processhandler.ProcessHandler(ssh_command,
+                    processOutputLine=output_callback(host),
+                    onFinish=finish_callback(cmdkey))
+                p.host = host
+                procs[cmdkey] = p
+                p.run()
+            elif len(finished):
+                (key, ph) = finished.popitem()
+                status = ph.poll()
+                host = ph.host
+                output = ph.output
+                yield host, status, output
+    finally:
+        while len(procs):
+            ph = procs.keys()[0]
+            procs[ph].kill()
+
+

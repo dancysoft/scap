@@ -449,8 +449,7 @@ def _call_rebuildLocalisationCache(wikidb, out_dir, use_cores=1,
                 "cp '%(out_dir)s/'*.[pc][hd][pb] '%(temp_dir)s'" % {
                     'temp_dir': temp_dir,
                     'out_dir': out_dir
-                },
-                logger)
+                })
 
         # Generate the files into a temporary directory as www-data
         utils.sudo_check_call('www-data',
@@ -463,16 +462,14 @@ def _call_rebuildLocalisationCache(wikidb, out_dir, use_cores=1,
                 'lang': '--lang ' + lang if lang else '',
                 'force': '--force' if force else '',
                 'quiet': '--quiet' if quiet else ''
-            },
-            logger)
+            })
 
         # Copy the files into the real directory as l10nupdate
         utils.sudo_check_call('l10nupdate',
             'cp -r "%(temp_dir)s"/* "%(out_dir)s"' % {
                 'temp_dir': temp_dir,
                 'out_dir': out_dir
-            },
-            logger)
+            })
 
 
 @utils.log_context('update_localization_cache')
@@ -523,16 +520,14 @@ def update_localization_cache(version, wikidb, verbose, cfg, logger=None):
         '--wiki="%s" --list-file="%s/wmf-config/extension-list" '
         '--output="%s" %s' % (
             wikidb, cfg['stage_dir'], new_extension_messages,
-            verbose_messagelist),
-        logger)
+            verbose_messagelist))
     utils.sudo_check_call('www-data',
-        'chmod 0664 "%s"' % new_extension_messages,
-        logger)
+        'chmod 0664 "%s"' % new_extension_messages)
     logger.debug('Copying %s to %s' % (
         new_extension_messages, extension_messages))
     shutil.copyfile(new_extension_messages, extension_messages)
     utils.sudo_check_call('www-data',
-        'rm "%s"' % new_extension_messages, logger)
+        'rm "%s"' % new_extension_messages)
 
     # Update ExtensionMessages-*.php in the local copy.
     deploy_dir = os.path.realpath(cfg['deploy_dir'])
@@ -541,8 +536,7 @@ def update_localization_cache(version, wikidb, verbose, cfg, logger=None):
         logger.debug('Copying ExtensionMessages-*.php to local copy')
         utils.sudo_check_call('mwdeploy',
             'cp "%s" "%s/wmf-config/"' % (
-                extension_messages, cfg['deploy_dir']),
-            logger)
+                extension_messages, cfg['deploy_dir']))
 
     # Rebuild all the CDB files for each language
     logger.info('Updating LocalisationCache for %s '
@@ -555,8 +549,7 @@ def update_localization_cache(version, wikidb, verbose, cfg, logger=None):
     utils.sudo_check_call('l10nupdate',
         '%s/refreshCdbJsonFiles '
         '--directory="%s" --threads=%s %s' % (
-            cfg['bin_dir'], cache_dir, use_cores, verbose_messagelist),
-        logger)
+            cfg['bin_dir'], cache_dir, use_cores, verbose_messagelist))
 
 
 def restart_hhvm(hosts, cfg, batch_size=1):
@@ -612,7 +605,7 @@ def git_fetch(location, repo, user="mwdeploy"):
 def git_checkout(location, rev, submodules=False, user="mwdeploy"):
     """Checkout a git repo sha at a location as a user
     """
-    logger = logging.getLogger('git_checkout')
+    logger = utils.get_logger()
     with utils.cd(location):
         logger.debug(
             'Checking out rev: {} at location: {}'.format(rev, location))
@@ -627,7 +620,7 @@ def git_checkout(location, rev, submodules=False, user="mwdeploy"):
 
 def git_update_server_info(has_submodules=False, location=os.getcwd()):
     """runs git update-server-info and tags submodules"""
-    logger = logging.getLogger('git_update_server_info')
+    logger = utils.get_logger()
 
     with utils.cd(location):
         cmd = '/usr/bin/git update-server-info'
@@ -646,7 +639,7 @@ def git_update_deploy_head(deploy_info, location):
     :param deploy_info: current deploy info to write to file as JSON
     :param (optional) location: git directory location (default cwd)
     """
-    logger = logging.getLogger('git_deploy_file')
+    logger = utils.get_logger()
 
     with utils.cd(location):
         deploy_file = os.path.join(location, '.git', 'DEPLOY_HEAD')
@@ -676,15 +669,15 @@ def git_tag_repo(deploy_info, location=os.getcwd()):
 
 
 def restart_service(service, user='mwdeploy'):
-    logger = logging.getLogger('service_restart')
+    logger = utils.get_logger()
 
     logger.debug('Restarting service {}'.format(service))
     cmd_format = 'sudo /usr/sbin/service {} {}'
-    utils.sudo_check_call(user, cmd_format.format(service, 'restart'), logger)
+    utils.sudo_check_call(user, cmd_format.format(service, 'restart'))
 
 
 def check_port(port_number):
-    logger = logging.getLogger('port_check')
+    logger = utils.get_logger()
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
     # Try this a few times while we wait for the service to come up
@@ -710,9 +703,8 @@ def move_symlink(source, dest, user='mwdeploy', logger=None):
 
     with utils.cd(common_path):
         utils.sudo_check_call(user,
-                              "ln -sfT '{}' '{}'".format(rsource, rdest),
-                              logger)
+                              "ln -sfT '{}' '{}'".format(rsource, rdest))
 
 
 def remove_symlink(path, user='mwdeploy', logger=None):
-    utils.sudo_check_call(user, "rm '{}'".format(path), logger)
+    utils.sudo_check_call(user, "rm '{}'".format(path))

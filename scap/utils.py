@@ -585,13 +585,13 @@ def sudo_temp_dir(owner, prefix, logger=None):
             break
     # Yes, there is a small race condition here in theory. In practice it
     # should be pretty hard to hit due to scap's global concurrency lock.
-    sudo_check_call(owner, 'mkdir "%s"' % dirname, logger)
+    sudo_check_call(owner, 'mkdir "%s"' % dirname)
 
     try:
         yield dirname
     finally:
         sudo_check_call(owner,
-            'find "%s" -maxdepth 1 -delete' % dirname, logger)
+            'find "%s" -maxdepth 1 -delete' % dirname)
 
 
 def read_pid(path):
@@ -643,7 +643,7 @@ def is_git_dir(path):
 
 
 def mkdir_p(path, user=get_real_username(), logger=None):
-    sudo_check_call(user, "mkdir -p '{}'".format(path), logger=logger)
+    sudo_check_call(user, "mkdir -p '{}'".format(path))
 
 
 @inside_git_dir
