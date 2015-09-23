@@ -216,19 +216,22 @@ class ShellProc(Proc):
         self.abort()
 
     def start(self):
-        self._running = True
-
         output_tty = open(self._context.output_tty, 'w')
 
         def output_callback(line):
-            output_tty.write("<%s>\n" % line)
-        outputs = [output_callback]
-        command = self._command
-        p = processhandler.ProcessHandlerMixin(command,
-            processOutputLine=outputs)
+            output_tty.write("%s\n" % line)
 
+        def finish_callback():
+            output_callback('done')
+            output_tty.close()
+            self._running = False
+
+        command = self._command
+        output_callback("Running %s:" % " ".join(command))
+        p = processhandler.ProcessHandlerMixin(command,
+            processOutputLine=output_callback,
+            onFinish=finish_callback)
+
+        self._running = True
         p.run()
-        p.wait()
-        output_tty.close()
-        #self._process = subprocess.Popen(self.value, shell=True)
-        #self._running = True
+
