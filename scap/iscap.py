@@ -62,32 +62,13 @@ def main():
         def prompt_token_callback(cli):
             return ui.get_prompt_tokens(context)
 
-        if not 'TMUX' in os.environ:
-            tmux = tmuxp.Server();
-            #print(tmux.attached_sessions())
-            if tmux.has_session('iscap'):
-                print ('error: iscap session already running. Try reattaching with `tmux attach`')
-                exit(1)
-            script = os.path.realpath(sys.argv[0])
-            scap_root = os.path.dirname(os.path.dirname(script))
-            reattach = os.path.join(scap_root,'bin','iscap-reattach')
-            print scap_root
-            os.execlp(reattach,scap_root,scap_root)
+        tmux = ui.setup_tmux()
 
-        tmux = tmuxp.Server();
         if tmux.has_session('iscap'):
-            #args = ('attach','-t','iscap')
-            #os.execvp('tmux', args)
-            #session = tmux.new_session(session_name="iscap", attach_if_exists=True)
             session = tmux.findWhere({'session_name': 'iscap'})
-            #tmux.attach_session(session)
         else:
+            print "Error: No tmux session named 'iscap'"
             session = tmux.new_session(session_name="iscap", attach_if_exists=True)
-            win = session.new_window(attach=False)
-            win = session.new_window(attach=False)
-
-        tmux.cmd('split-window')
-
         for pane in tmux._list_panes():
             if pane['pane_id'] == '%1':
                 context.output_tty = pane['pane_tty']

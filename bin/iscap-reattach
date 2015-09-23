@@ -1,5 +1,0 @@
-#!/usr/bin/env bash
-echo "1 $1"
-tmux new-session -A -s iscap -d $1/bin/iscap
-tmux set -g -t @0 set-remain-on-exit on
-tmux attach -t iscap

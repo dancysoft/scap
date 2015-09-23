@@ -2,6 +2,9 @@ from string import Formatter
 from pygments.token import Token, string_to_tokentype
 from prompt_toolkit.styles import DefaultStyle
 from prompt_toolkit.layout.controls import UIControl
+import tmuxp
+import os
+
 scap_styles = {
     Token: '#dddddd',
     Token.Text: '#f6f6f6',
@@ -90,3 +93,26 @@ def tokenize_string(text, values,
         except:
             continue
     return tokens
+
+def setup_tmux():
+    if not 'TMUX' in os.environ:
+        tmux = tmuxp.Server();
+        if tmux.has_session('iscap'):
+            print ('error: iscap session already running. Try reattaching with `tmux attach`')
+            session = tmux.list_sessions()[0]
+            session.attach_session()
+            exit(1)
+        else:
+            session = tmux.new_session(session_name="iscap")
+            top_pane = session.attached_pane()
+            tmux.cmd('split-window')
+            new_pane = session.attached_pane()
+            new_pane.clear()
+            top_pane.select_pane()
+            top_pane.clear()
+            top_pane.send_keys('iscap')
+            session.attach_session()
+            exit(0)
+
+    tmux = tmuxp.Server();
+    return tmux
