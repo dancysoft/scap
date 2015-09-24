@@ -84,11 +84,10 @@ class Job(object):
             else:
                 return []
 
-        #if self._reporter:
-        #    return self._run_with_reporter(batch_size)
-        #else:
-        if True:
-
+        if self._reporter:
+            return self._run_with_reporter(batch_size)
+        else:
+            logger = utils.get_logger()
             failed = 0
             outputs = {}
             for host, status, output in cluster_ssh_threaded(
@@ -96,8 +95,9 @@ class Job(object):
                 self.max_failure):
                 if status > 0:
                     failed += 1
-                outputs[host] = output
-            return (len(outputs)-failed, failed, outputs)
+                    logger.log("host %s failed: %s" % (host, output))
+
+            return len(outputs)-failed, failed
 
     def _run_with_reporter(self, batch_size):
         """Run job and feed results to a :class:`scap.log.ProgressReporter` as
