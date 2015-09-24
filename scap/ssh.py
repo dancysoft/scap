@@ -194,11 +194,9 @@ def cluster_ssh_threaded(hosts, command, user=None, limit=80, max_fail=None):
     except AttributeError:
         pass
 
-    failures = 0
     procs = {}
     finished = {}
-    fds = {}
-    #poll = select.epoll()
+    failures = 0
     try:
         def output_callback(host):
             def print_line(line):
@@ -214,7 +212,7 @@ def cluster_ssh_threaded(hosts, command, user=None, limit=80, max_fail=None):
 
             return final_callback
 
-        while hosts or len(procs):
+        while failures < max_failure and (hosts or len(procs)):
             if hosts and len(procs) < limit:
                 host = hosts.pop()
                 ssh_command = list(SSH)
@@ -222,10 +220,6 @@ def cluster_ssh_threaded(hosts, command, user=None, limit=80, max_fail=None):
                     ssh_command.append('-l%s' % user)
                 ssh_command.append(host)
                 ssh_command.extend(command)
-                #proc = subprocess.Popen(ssh_command, stdout=subprocess.PIPE,
-                #        stderr=subprocess.STDOUT, preexec_fn=os.setsid)
-                #procs[proc.pid] = (proc, host)
-                #poll.register(proc.stdout, select.EPOLLIN)
 
                 cmdkey = " ".join(ssh_command)
                 p = processhandler.ProcessHandler(ssh_command,
@@ -237,9 +231,12 @@ def cluster_ssh_threaded(hosts, command, user=None, limit=80, max_fail=None):
             elif len(finished):
                 (key, ph) = finished.popitem()
                 status = ph.poll()
+                if status > 0:
+                    failures += 1
                 host = ph.host
                 output = ph.output
                 yield host, status, output
+            # todo: throw exception if max_failure exceeded?
     finally:
         while len(procs):
             ph = procs.keys()[0]
