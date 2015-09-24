@@ -17,19 +17,25 @@ scap_styles = {
     Token.Name.Variable: "#aaccff",
 }
 
+
 class ScapStyle(DefaultStyle):
     styles = {}
     styles.update(scap_styles)
     styles.update(DefaultStyle.styles)
 
+
 def get_prompt_tokens(context):
     return tokenize_string("# {project_name@Attr}{rcwd@Env} > ", context,
-                            text_token=Token.Prompt)
+        text_token=Token.Prompt)
+
 
 def get_toolbar_tokens(context):
-    return tokenize_string("User: {u} | {project_name:Project} | cwd: {project_root@Attr}{rcwd@Env} | {cmd:Last Command}", context,
-                            Token.Toolbar.Text,
-                            Token.Toolbar.Value)
+    return tokenize_string(
+        "User: {u} | {project_name:Project} | "
+        + "cwd: {project_root@Attr}{rcwd@Env} | {cmd:Last Command}",
+        context,
+        Token.Toolbar.Text,
+        Token.Toolbar.Value)
 
 
 class TerminalControl(UIControl):
@@ -66,8 +72,7 @@ def tokenize_string(text, values,
     tokens = []
     parsed = fmt.parse(text)
     for x in parsed:
-        part,key,lbl,_ = x
-        #print x
+        part, key, lbl, _ = x
         try:
             if len(part):
                 # static text that appears before the dynamic value:
@@ -87,18 +92,18 @@ def tokenize_string(text, values,
             if (len(val)):
                 # if there is a label, display it first
                 if (len(lbl)):
-                    tokens.append((text_token, str(lbl)+": "))
+                    tokens.append((text_token, str(lbl) + ": "))
                 # finally display the dynamic value
                 tokens.append((vt, val))
         except:
             continue
     return tokens
 
+
 def setup_tmux():
-    if not 'TMUX' in os.environ:
-        tmux = tmuxp.Server();
+    if 'TMUX' not in os.environ:
+        tmux = tmuxp.Server()
         if tmux.has_session('iscap'):
-            print ('error: iscap session already running. Try reattaching with `tmux attach`')
             session = tmux.list_sessions()[0]
             session.attach_session()
             exit(1)
@@ -114,5 +119,5 @@ def setup_tmux():
             session.attach_session()
             exit(0)
 
-    tmux = tmuxp.Server();
+    tmux = tmuxp.Server()
     return tmux

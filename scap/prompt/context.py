@@ -1,10 +1,14 @@
-import os, socket, subprocess, shlex, sys
+import os
+import socket
+import subprocess
+import shlex
+import sys
 from contextlib import contextmanager
-from scap.utils import sudo_check_call
 from scap.project import ScapProject
 from mozprocess import processhandler
 
 context_stack = []
+
 
 @contextmanager
 def ShellContextManager():
@@ -20,9 +24,11 @@ def ShellContextManager():
     finally:
         context_stack.pop()
 
+
 def execute(cmd):
     print('execute %s' % cmd)
     return context_stack[-1].execute(cmd)
+
 
 class ShellCommandToken(object):
     def __init__(self, token, text):
@@ -45,6 +51,7 @@ def interpret_command(cmd, context):
     tokens = shlex.split(cmd)
     return tokens
 
+
 def lookup_command(tokens, context):
     if (tokens[0] in Proc.commands):
         return Proc(tokens, context)
@@ -52,10 +59,10 @@ def lookup_command(tokens, context):
         try:
             proc = ProjectCommand(tokens, context)
         except Exception as ex:
-            #print ex
             proc = ShellProc(tokens, context)
 
         return proc
+
 
 class ShellContext(object):
     def __init__(self, parent=None, cwd=os.getcwd()):
@@ -111,7 +118,7 @@ class ShellContext(object):
 
     @cwd.setter
     def cwd(self, cwd):
-        self._cwd=cwd
+        self._cwd = cwd
 
     @property
     def commands(self):
@@ -129,15 +136,17 @@ class ShellContext(object):
     def __getitem__(self, key):
         return getattr(self, key)
 
+
 class Proc(object):
     commands = {
         "exit": "exit",
         "detach": "detach"
     }
+
     def __init__(self, command, context):
-        self._command=command
-        self._context=context
-        self._running=False
+        self._command = command
+        self._context = context
+        self._running = False
 
     @property
     def running(self):
@@ -169,6 +178,7 @@ class Proc(object):
         self._running = False
         pass
 
+
 class ProjectCommand(Proc):
     '''
     Project-level commands are implemented in python modules which get
@@ -187,9 +197,9 @@ class ProjectCommand(Proc):
     '''
 
     def __init__(self, command, context):
-        self.subcommands=[]
-        self._context=context
-        self._running=False
+        self.subcommands = []
+        self._context = context
+        self._running = False
         cmd_module = __import__("cmds.%s" % command[0], fromlist=["cmds"])
 
         if len(command) > 1 and hasattr(cmd_module, command[1]):
@@ -202,7 +212,7 @@ class ProjectCommand(Proc):
                     self.subcommands.append(i[4:])
         else:
             self._run = None
-        self._command=command
+        self._command = command
 
     def start(self):
         self._running = True
@@ -210,6 +220,7 @@ class ProjectCommand(Proc):
             args = self._command[1:]
             self._run(*args)
         self._running = False
+
 
 class ShellProc(Proc):
     def kill(self):
@@ -234,4 +245,3 @@ class ShellProc(Proc):
 
         self._running = True
         p.run()
-

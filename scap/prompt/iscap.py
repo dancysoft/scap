@@ -9,16 +9,17 @@ from prompt_toolkit.history import FileHistory
 from pygments.token import Token
 from scap.prompt.context import ShellContextManager
 from scap.prompt.completion import ScapCompleter
-from pygments.lexers.shell import BashLexer
-#import pexpect
 import scap.prompt.ui as ui
-#import click
 import os
-import shlex
 import sys
-import tmuxp
+
+try:
+    from pygments.lexers.shell import BashLexer
+except:
+    from pygments.lexers.misc import BashLexer
 
 sys.path.append(os.getcwd())
+
 
 class LogStreamWrapper(object):
     def __init__(self, stream, delimiter='\r'):
@@ -28,8 +29,6 @@ class LogStreamWrapper(object):
 
     def write(self, data):
         self.data.append(data)
-        #self.stream.write(data)
-        #self.stream.flush()
 
     @property
     def num_lines(self):
@@ -43,20 +42,14 @@ class LogStreamWrapper(object):
             return ""
 
     def __getattr__(self, attr):
-       return getattr(self.stream, attr)
+        return getattr(self.stream, attr)
 
 
 def main():
-
-    #orig_stderr = sys.stderr
-    #stderr_wrapper = LogStreamWrapper(orig_stderr)
-    #sys.stderr = stderr_wrapper
     with ShellContextManager() as context:
         def toolbar_token_callback(cli):
             tokens = ui.get_toolbar_tokens(context)
             tokens.append((Token.Text, " | "))
-            #tokens.append((Token.Text, repr(stderr_wrapper.num_lines)))
-            #tokens.append((Token.Text, stderr_wrapper.lastline))
             return tokens
 
         def prompt_token_callback(cli):
@@ -68,7 +61,8 @@ def main():
             session = tmux.findWhere({'session_name': 'iscap'})
         else:
             print "Error: No tmux session named 'iscap'"
-            session = tmux.new_session(session_name="iscap", attach_if_exists=True)
+            session = tmux.new_session(session_name="iscap",
+                attach_if_exists=True)
         for pane in tmux._list_panes():
             if pane['pane_id'] == '%1':
                 context.output_tty = pane['pane_tty']
@@ -78,11 +72,11 @@ def main():
 
         while True:
             cmd = get_input(get_prompt_tokens=prompt_token_callback,
-                             get_bottom_toolbar_tokens=toolbar_token_callback,
-                             enable_system_bindings=Always(),
-                             history=history_file, completer=command_completer,
-                             lexer=BashLexer, style=ui.ScapStyle,
-                             )
+                    get_bottom_toolbar_tokens=toolbar_token_callback,
+                    enable_system_bindings=Always(),
+                    history=history_file, completer=command_completer,
+                    lexer=BashLexer, style=ui.ScapStyle)
+
             if len(cmd) > 0:
                 try:
                     cmd = context.execute(cmd)
@@ -95,7 +89,6 @@ def main():
                             cmd.start()
                         except:
                             print "Command not found: %s" % cmd[0]
-                        #tmux.cmd(cmd.value())
                 finally:
                     pass
 
