@@ -63,8 +63,9 @@ def main():
             print "Error: No tmux session named 'iscap'"
             session = tmux.new_session(session_name="iscap",
                 attach_if_exists=True)
+
         for pane in tmux._list_panes():
-            if pane['pane_id'] == '%1':
+            if pane['window_index'] == '0' and pane['pane_index'] == '1':
                 context.output_tty = pane['pane_tty']
 
         history_file = FileHistory(os.path.expanduser('~/.iscap_history'))
@@ -87,8 +88,10 @@ def main():
                     else:
                         try:
                             cmd.start()
-                        except:
+                        except Exception as ex:
+                            print ex
                             print "Command not found: %s" % cmd[0]
+                            raise
                 finally:
                     pass
 

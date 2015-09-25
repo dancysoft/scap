@@ -47,23 +47,6 @@ class ShellCommandToken(object):
         return self._text
 
 
-def interpret_command(cmd, context):
-    tokens = shlex.split(cmd)
-    return tokens
-
-
-def lookup_command(tokens, context):
-    if (tokens[0] in Proc.commands):
-        return Proc(tokens, context)
-    else:
-        try:
-            proc = ProjectCommand(tokens, context)
-        except Exception as ex:
-            proc = ShellProc(tokens, context)
-
-        return proc
-
-
 class ShellContext(object):
     def __init__(self, parent=None, cwd=os.getcwd()):
         self._parent = parent
@@ -75,7 +58,7 @@ class ShellContext(object):
         self._commands = None
 
     def execute(self, cmd):
-        cmd = interpret_command(cmd, self)
+        cmd = shlex.split(cmd)
         if cmd[0] == 'cd' and len(cmd) > 1:
             os.chdir(cmd[1])
             if not self._cwd == os.getcwd():
@@ -84,9 +67,21 @@ class ShellContext(object):
                 print("Directory '%s' doesn't exist." % cmd[1])
             self._cmd = Proc(cmd,self)
         else:
-            self._cmd = lookup_command(cmd, self)
+            self._cmd = self.lookup_command(cmd)
 
         return self._cmd
+
+    def lookup_command(self, tokens):
+        if (tokens[0] in Proc.commands):
+            return Proc(tokens, self)
+        else:
+            try:
+                proc = ProjectCommand(tokens, self)
+            except Exception as ex:
+                print ex
+                proc = ShellProc(tokens, self)
+
+            return proc
 
     @property
     def project(self):
@@ -227,14 +222,20 @@ class ShellProc(Proc):
         self.abort()
 
     def start(self):
-        output_tty = open(self._context.output_tty, 'w')
+
+        if hasattr(self._context, 'output_tty'):
+            output_tty = open(self._context.output_tty, 'w')
+            close_tty = True
+        else:
+            close_tty = False
+            output_tty = sys.stdout
 
         def output_callback(line):
             output_tty.write("%s\n" % line)
 
         def finish_callback():
-            output_callback('done')
-            output_tty.close()
+            if close_tty:
+                output_tty.close()
             self._running = False
 
         command = self._command
